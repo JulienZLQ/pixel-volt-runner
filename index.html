@@ -28,11 +28,24 @@
           <div class="menu-actions">
             <button id="startBtn" class="btn primary">开始</button>
             <div class="split">
-              <button id="skinBtn" class="btn secondary">皮肤</button>
+              <button id="skinBtn" class="btn secondary disabled" disabled aria-disabled="true">皮肤</button>
               <button id="helpBtn" class="btn secondary">玩法</button>
             </div>
           </div>
           <p id="homeHint" class="hint">点击跳跃，按住下滑，闪电满格可冲刺。</p>
+        </div>
+
+        <div id="help" class="screen overlay hidden">
+          <div class="modal help-card">
+            <h2>玩法</h2>
+            <ul class="help-list">
+              <li>点屏幕或“跳跃”吃金币、越过路障。</li>
+              <li>按住“下滑”躲避空中无人机。</li>
+              <li>闪电条满后点“冲刺”，短时间无敌。</li>
+              <li>磁铁会自动吸附近金币。</li>
+            </ul>
+            <button id="helpCloseBtn" class="btn primary">知道了</button>
+          </div>
         </div>
 
         <div id="pause" class="screen overlay hidden">
