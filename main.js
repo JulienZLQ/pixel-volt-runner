@@ -9,6 +9,7 @@ const STORAGE_KEY = "pixel-volt-runner";
 const dom = {
   home: document.querySelector("#home"),
   pause: document.querySelector("#pause"),
+  help: document.querySelector("#help"),
   result: document.querySelector("#result"),
   hud: document.querySelector("#hud"),
   controls: document.querySelector("#controls"),
@@ -25,6 +26,7 @@ const dom = {
   startBtn: document.querySelector("#startBtn"),
   skinBtn: document.querySelector("#skinBtn"),
   helpBtn: document.querySelector("#helpBtn"),
+  helpCloseBtn: document.querySelector("#helpCloseBtn"),
   pauseBtn: document.querySelector("#pauseBtn"),
   resumeBtn: document.querySelector("#resumeBtn"),
   quitBtn: document.querySelector("#quitBtn"),
@@ -50,6 +52,7 @@ const state = {
   magnet: 0,
   spawn: 0,
   coinSpawn: 0,
+  segment: 0,
   shake: 0,
   player: {
     x: 82,
@@ -68,6 +71,13 @@ const state = {
   particles: [],
 };
 
+const lanes = {
+  ground: GROUND - 82,
+  hop: GROUND - 122,
+  jump: GROUND - 156,
+  slide: GROUND - 144,
+};
+
 const skins = [
   { body: "#ffd83d", cheek: "#ff665d", shadow: "#d29413" },
   { body: "#ffe678", cheek: "#ff7a79", shadow: "#caa84d" },
@@ -79,6 +89,10 @@ const cloudPattern = [
   [1, 1, 1, 1, 0],
   [0, 1, 1, 1, 1],
 ];
+
+function coinAt(x, y) {
+  state.coinsList.push({ x, y, r: 9, taken: false });
+}
 
 function px(x, y, w, h, color) {
   ctx.fillStyle = color;
@@ -167,6 +181,86 @@ const mouseFrames = {
   ],
 };
 
+const cuteMouseFrames = {
+  runA: [
+    "....KKK........K..",
+    "...KYYKK......KYK.",
+    "..KYYYYK.....KYYK.",
+    "..KYYYYYK...KYYYK.",
+    "...KYYYYYKKKYYYK..",
+    "..KYYYYYYYYYYYYK..",
+    ".KYYYYKYYKYYYYYK..",
+    ".KYYYKKYYKKYRYYK..",
+    ".KYYYYYYYYYYYYYKTT",
+    "..KYYYYMYYYYYYKTT.",
+    "...KYYYYYYYYYKTT..",
+    "....KYYKYYKYYK....",
+    "...KYYK..KYYYK....",
+    "..KYYK....KYYK....",
+  ],
+  runB: [
+    "....KKK.......K...",
+    "...KYYKK.....KYK..",
+    "..KYYYYK....KYYK..",
+    "..KYYYYYK..KYYYK..",
+    "...KYYYYYKKYYYK...",
+    "..KYYYYYYYYYYYK...",
+    ".KYYYYKYYKYYYYYK..",
+    ".KYYYKKYYKKYRYYK..",
+    ".KYYYYYYYYYYYYYKTT",
+    "..KYYYYMYYYYYYKTT.",
+    "...KYYYYYYYYYKTT..",
+    "....KYYKYYKYYK....",
+    "..KYYYK...KYYK....",
+    "...KYYK....KYYYK..",
+  ],
+  jump: [
+    "....KKK........K..",
+    "...KYYKK......KYK.",
+    "..KYYYYK.....KYYK.",
+    "..KYYYYYK...KYYYK.",
+    "...KYYYYYKKKYYYK..",
+    "..KYYYYYYYYYYYYK..",
+    ".KYYYYKYYKYYYYYK..",
+    ".KYYYKKYYKKYRYYKTT",
+    ".KYYYYYYYYYYYYYKTT",
+    "..KYYYYMYYYYYYK...",
+    "...KYYYYYYYYYK....",
+    "..KYYK....KYYK....",
+    ".KYYK......KYYK...",
+    "KYYK........KYYK..",
+  ],
+  slide: [
+    "..................",
+    "..................",
+    ".....KKK......K...",
+    "....KYYKK....KYK..",
+    "...KYYYYYKKKKYYK..",
+    "..KYYYYYYYYYYYYK..",
+    ".KYYYYKYYKYYYRYYK.",
+    ".KYYYKKYYKKYYYYYTT",
+    "..KYYYYMYYYYYYKTT.",
+    "...KYYYYYYYYYK....",
+    "....KYYK..KYYK....",
+  ],
+  dash: [
+    "....KKK........K..",
+    "...KYYKK......KYK.",
+    "..KYYYYK.....KYYK.",
+    "..KYYYYYK...KYYYK.",
+    "...KYYYYYKKKYYYK..",
+    "..KYYYYYYYYYYYYK..",
+    ".KYYYYCYYCYYYYYK..",
+    ".KYYYCCYYCCYRYYK..",
+    ".KYYYYYYYYYYYYYKTT",
+    "..KYYYYMYYYYYYKTT.",
+    "...KYYYYYYYYYKTT..",
+    "....KYYKYYKYYK....",
+    "...KYYK..KYYYK....",
+    "..KYYK....KYYK....",
+  ],
+};
+
 function resizeCanvas() {
   const dpr = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
   canvas.width = W * dpr;
@@ -182,6 +276,7 @@ function persist() {
 function setMode(mode) {
   state.mode = mode;
   dom.home.classList.toggle("hidden", mode !== "home");
+  dom.help.classList.toggle("hidden", mode !== "help");
   dom.result.classList.toggle("hidden", mode !== "result");
   dom.pause.classList.toggle("hidden", mode !== "paused");
   dom.hud.classList.toggle("hidden", mode !== "playing");
@@ -206,8 +301,9 @@ function resetGame() {
     energy: 12,
     dash: 0,
     magnet: 0,
-    spawn: 0.7,
-    coinSpawn: 0.2,
+    spawn: 0.25,
+    coinSpawn: 0,
+    segment: 0,
     shake: 0,
     coinsList: [],
     obstacles: [],
@@ -232,7 +328,7 @@ function jump() {
   const p = state.player;
   if (state.mode !== "playing") return;
   if (p.onGround) {
-    p.vy = -475;
+    p.vy = -520;
     p.onGround = false;
     p.sliding = false;
     burst(p.x + 20, p.y + 50, "#fff06a", 8);
@@ -255,34 +351,47 @@ function dash() {
 }
 
 function spawnObstacle() {
-  const isHigh = Math.random() > 0.64;
-  state.obstacles.push({
-    x: W + 18,
-    y: isHigh ? GROUND - 104 : GROUND - 38,
-    w: isHigh ? 38 : 34,
-    h: isHigh ? 38 : 34,
-    type: isHigh ? "drone" : "block",
-    passed: false,
-  });
+  const x = W + 30;
+  const pattern = state.segment % 5;
+  if (pattern === 1) {
+    state.obstacles.push({ x, y: GROUND - 118, w: 42, h: 30, type: "drone", passed: false });
+    spawnCoinLine(x - 92, lanes.ground, 4, 22);
+    spawnCoinLine(x + 74, lanes.ground, 4, 22);
+  } else if (pattern === 3) {
+    state.obstacles.push({ x, y: GROUND - 42, w: 36, h: 38, type: "cone", passed: false });
+    spawnCoinArc(x - 122, lanes.hop, 5, 24, 24);
+  } else {
+    state.obstacles.push({ x, y: GROUND - 42, w: 38, h: 38, type: "block", passed: false });
+    spawnCoinLine(x + 72, lanes.ground, 5, 22);
+  }
+  state.segment += 1;
 }
 
 function spawnCoins() {
-  const arc = Math.random() > 0.45;
-  const startY = arc ? GROUND - 130 : GROUND - 82;
-  for (let i = 0; i < 6; i += 1) {
-    state.coinsList.push({
-      x: W + 20 + i * 24,
-      y: startY - (arc ? Math.sin(i / 5 * Math.PI) * 44 : 0),
-      r: 9,
-      taken: false,
-    });
+  const x = W + 22;
+  if (state.segment % 4 === 0) {
+    spawnCoinLine(x, lanes.ground, 6, 22);
+  } else {
+    spawnCoinArc(x, lanes.hop, 6, 24, 30);
+  }
+}
+
+function spawnCoinLine(x, y, count, gap) {
+  for (let i = 0; i < count; i += 1) coinAt(x + i * gap, y);
+}
+
+function spawnCoinArc(x, baseY, count, gap, lift) {
+  for (let i = 0; i < count; i += 1) {
+    const peak = Math.sin((i / (count - 1)) * Math.PI) * lift;
+    coinAt(x + i * gap, baseY - peak);
   }
 }
 
 function spawnPower() {
+  const y = Math.random() > 0.5 ? lanes.hop : lanes.ground;
   state.powers.push({
-    x: W + 40,
-    y: GROUND - 132 - Math.random() * 56,
+    x: W + 58,
+    y,
     w: 24,
     h: 24,
     type: Math.random() > 0.5 ? "bolt" : "magnet",
@@ -309,7 +418,7 @@ function update(dt) {
     if (p.slideTime <= 0) p.sliding = false;
   }
 
-  p.vy += 1220 * dt;
+  p.vy += 1160 * dt;
   p.y += p.vy * dt;
   const targetY = GROUND - (p.sliding ? 36 : 56);
   if (p.y >= targetY) {
@@ -322,12 +431,17 @@ function update(dt) {
   state.coinSpawn -= dt;
   if (state.spawn <= 0) {
     spawnObstacle();
-    if (Math.random() > 0.64) spawnPower();
-    state.spawn = Math.max(0.72, 1.48 - state.distance / 900) + Math.random() * 0.45;
+    if (Math.random() > 0.72) spawnPower();
+    state.spawn = Math.max(1.05, 1.72 - state.distance / 1200) + Math.random() * 0.34;
   }
   if (state.coinSpawn <= 0) {
-    spawnCoins();
-    state.coinSpawn = 1.05 + Math.random() * 0.85;
+    const clearPath = !state.obstacles.some((obs) => obs.x > W - 40 && obs.x < W + 190);
+    if (clearPath) {
+      spawnCoins();
+      state.coinSpawn = 1.65 + Math.random() * 0.85;
+    } else {
+      state.coinSpawn = 0.35;
+    }
   }
 
   moveAndCull(state.obstacles, speed, dt);
@@ -529,46 +643,64 @@ function drawItems() {
 }
 
 function drawCoin(x, y) {
-  const flip = Math.abs(Math.sin(state.time * 8));
-  px(x - 8 * flip, y - 10, 16 * flip || 3, 20, "#ffb629");
-  px(x - 5 * flip, y - 7, 10 * flip || 2, 14, "#fff064");
-  px(x - 1, y - 5, 2, 10, "#a56616");
+  const shine = Math.floor(state.time * 8) % 2;
+  px(x - 8, y - 8, 16, 16, "#8b5600");
+  px(x - 10, y - 6, 20, 12, "#ffb629");
+  px(x - 8, y - 10, 16, 20, "#ffcf37");
+  px(x - 4, y - 6, 8, 12, "#fff06a");
+  px(x - 1, y - 7, 3, 14, "#b66e00");
+  if (shine) px(x - 6, y - 6, 4, 4, "#fff9b2");
 }
 
 function drawPower(power) {
   if (power.type === "bolt") {
-    px(power.x + 10, power.y, 8, 8, "#fff45f");
-    px(power.x + 6, power.y + 8, 12, 8, "#7cf7ff");
-    px(power.x + 12, power.y + 16, 8, 8, "#fff45f");
-    px(power.x + 4, power.y + 24, 8, 8, "#7cf7ff");
+    px(power.x + 9, power.y - 2, 10, 8, "#fff9a8");
+    px(power.x + 5, power.y + 6, 14, 8, "#ffdf42");
+    px(power.x + 12, power.y + 14, 9, 8, "#7cf7ff");
+    px(power.x + 4, power.y + 22, 10, 8, "#ffdf42");
+    px(power.x + 15, power.y + 8, 5, 5, "#fff");
   } else {
-    px(power.x + 3, power.y + 4, 7, 18, "#ff65d8");
-    px(power.x + 15, power.y + 4, 7, 18, "#ff65d8");
-    px(power.x + 3, power.y + 18, 19, 6, "#f6f6ff");
+    px(power.x + 2, power.y + 2, 8, 18, "#db3bce");
+    px(power.x + 16, power.y + 2, 8, 18, "#db3bce");
+    px(power.x + 2, power.y + 16, 22, 8, "#f6f6ff");
+    px(power.x + 6, power.y + 20, 14, 5, "#ff65d8");
   }
 }
 
 function drawObstacle(obs) {
   if (obs.type === "drone") {
-    px(obs.x, obs.y + 14, obs.w, 18, "#364253");
-    px(obs.x + 8, obs.y + 5, 22, 10, "#ff5a4d");
-    px(obs.x - 6, obs.y + 17, 6, 6, "#7cf7ff");
-    px(obs.x + obs.w, obs.y + 17, 6, 6, "#7cf7ff");
+    px(obs.x + 3, obs.y + 12, obs.w - 6, 18, "#4b556d");
+    px(obs.x + 11, obs.y + 5, 20, 10, "#ff5a4d");
+    px(obs.x + 14, obs.y + 17, 5, 5, "#161923");
+    px(obs.x + 24, obs.y + 17, 5, 5, "#161923");
+    px(obs.x - 8, obs.y + 15, 10, 6, "#7cf7ff");
+    px(obs.x + obs.w - 2, obs.y + 15, 10, 6, "#7cf7ff");
+    px(obs.x + 7, obs.y + 30, 5, 6, "#2b3143");
+    px(obs.x + obs.w - 12, obs.y + 30, 5, 6, "#2b3143");
     return;
   }
-  px(obs.x, obs.y, obs.w, obs.h, "#704029");
-  px(obs.x + 4, obs.y + 4, obs.w - 8, 8, "#ff5a4d");
-  px(obs.x + 8, obs.y + 18, 8, 8, "#3b1d14");
-  px(obs.x + 22, obs.y + 18, 8, 8, "#3b1d14");
+  if (obs.type === "cone") {
+    px(obs.x + 14, obs.y, 10, 8, "#fff0a0");
+    px(obs.x + 10, obs.y + 8, 18, 10, "#ff6a3d");
+    px(obs.x + 6, obs.y + 18, 26, 12, "#fff0a0");
+    px(obs.x + 2, obs.y + 30, 34, 8, "#ff6a3d");
+    px(obs.x, obs.y + 38, 38, 5, "#5b2a13");
+    return;
+  }
+  px(obs.x, obs.y, obs.w, obs.h, "#7b4a2d");
+  px(obs.x + 4, obs.y + 4, obs.w - 8, 8, "#c87336");
+  px(obs.x + 5, obs.y + 14, obs.w - 10, 5, "#fff06a");
+  px(obs.x + 8, obs.y + 24, 8, 8, "#3b1d14");
+  px(obs.x + 23, obs.y + 24, 8, 8, "#3b1d14");
 }
 
 function drawPlayer() {
   const p = state.player;
   const skin = skins[save.skin % skins.length];
-  let frame = Math.floor(state.time * 12) % 2 ? mouseFrames.runA : mouseFrames.runB;
-  if (!p.onGround) frame = mouseFrames.jump;
-  if (p.sliding) frame = mouseFrames.slide;
-  if (state.dash > 0) frame = mouseFrames.dash;
+  let frame = Math.floor(state.time * 12) % 2 ? cuteMouseFrames.runA : cuteMouseFrames.runB;
+  if (!p.onGround) frame = cuteMouseFrames.jump;
+  if (p.sliding) frame = cuteMouseFrames.slide;
+  if (state.dash > 0) frame = cuteMouseFrames.dash;
 
   if (state.dash > 0) {
     for (let i = 0; i < 5; i += 1) {
@@ -576,7 +708,7 @@ function drawPlayer() {
     }
   }
 
-  sprite(frame, p.x - 7, p.y - 2, 4, {
+  sprite(frame, p.x - 12, p.y - 5, 4, {
     Y: skin.body,
     R: skin.cheek,
     K: "#1d1b22",
@@ -596,12 +728,22 @@ function drawParticles() {
 function bindPress(button, down, up) {
   button.addEventListener("pointerdown", (event) => {
     event.preventDefault();
+    button.setPointerCapture?.(event.pointerId);
+    button.classList.add("is-pressed");
     down();
   });
   if (up) {
-    button.addEventListener("pointerup", up);
-    button.addEventListener("pointercancel", up);
-    button.addEventListener("pointerleave", up);
+    const release = (event) => {
+      event.preventDefault();
+      button.classList.remove("is-pressed");
+      up();
+    };
+    button.addEventListener("pointerup", release);
+    button.addEventListener("pointercancel", release);
+    button.addEventListener("pointerleave", release);
+  } else {
+    button.addEventListener("pointerup", () => button.classList.remove("is-pressed"));
+    button.addEventListener("pointercancel", () => button.classList.remove("is-pressed"));
   }
 }
 
@@ -611,14 +753,8 @@ dom.homeBtn.addEventListener("click", () => setMode("home"));
 dom.pauseBtn.addEventListener("click", () => setMode("paused"));
 dom.resumeBtn.addEventListener("click", () => setMode("playing"));
 dom.quitBtn.addEventListener("click", () => setMode("home"));
-dom.skinBtn.addEventListener("click", () => {
-  save.skin = (save.skin + 1) % skins.length;
-  persist();
-  dom.homeHint.textContent = `已切换皮肤 ${save.skin + 1}/3`;
-});
-dom.helpBtn.addEventListener("click", () => {
-  dom.homeHint.textContent = "点击/空格跳跃，按住下滑，闪电满格点冲刺。";
-});
+dom.helpBtn.addEventListener("click", () => setMode("help"));
+dom.helpCloseBtn.addEventListener("click", () => setMode("home"));
 
 bindPress(dom.jumpBtn, jump);
 bindPress(dom.slideBtn, startSlide, () => {
@@ -626,9 +762,13 @@ bindPress(dom.slideBtn, startSlide, () => {
 });
 bindPress(dom.dashBtn, dash);
 
-canvas.addEventListener("pointerdown", () => {
+canvas.addEventListener("pointerdown", (event) => {
+  event.preventDefault();
   if (state.mode === "playing") jump();
 });
+canvas.addEventListener("contextmenu", (event) => event.preventDefault());
+document.addEventListener("selectstart", (event) => event.preventDefault());
+document.addEventListener("gesturestart", (event) => event.preventDefault());
 
 window.addEventListener("keydown", (event) => {
   if (event.code === "Space" || event.code === "ArrowUp") jump();
