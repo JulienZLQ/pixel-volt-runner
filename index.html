@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>像素闪电跑酷</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="shell" aria-label="像素闪电跑酷">
+      <section class="phone">
+        <canvas id="game" width="360" height="640" aria-label="游戏画面"></canvas>
+
+        <div id="home" class="screen screen-home">
+          <div class="top-bar">
+            <span class="chip">金币 <b id="homeCoins">0</b></span>
+            <span class="chip">最佳 <b id="homeBest">0m</b></span>
+          </div>
+          <div class="brand">
+            <span class="brand-kicker">PIXEL VOLT</span>
+            <h1>像素闪电跑酷</h1>
+          </div>
+          <div class="hero-card" aria-hidden="true">
+            <div class="mascot idle"></div>
+            <div class="spark spark-a"></div>
+            <div class="spark spark-b"></div>
+          </div>
+          <div class="menu-actions">
+            <button id="startBtn" class="btn primary">开始</button>
+            <div class="split">
+              <button id="skinBtn" class="btn secondary">皮肤</button>
+              <button id="helpBtn" class="btn secondary">玩法</button>
+            </div>
+          </div>
+          <p id="homeHint" class="hint">点击跳跃，按住下滑，闪电满格可冲刺。</p>
+        </div>
+
+        <div id="pause" class="screen overlay hidden">
+          <div class="modal">
+            <h2>暂停</h2>
+            <button id="resumeBtn" class="btn primary">继续</button>
+            <button id="quitBtn" class="btn secondary">回首页</button>
+          </div>
+        </div>
+
+        <div id="result" class="screen overlay hidden">
+          <div class="modal result-card">
+            <p class="brand-kicker">本局结算</p>
+            <h2 id="resultTitle">电力充足</h2>
+            <div class="result-mascot" aria-hidden="true">
+              <div class="mascot cheer"></div>
+            </div>
+            <dl class="stats">
+              <div><dt>距离</dt><dd id="resultDistance">0m</dd></div>
+              <div><dt>金币</dt><dd id="resultCoins">0</dd></div>
+              <div><dt>最高连击</dt><dd id="resultCombo">0</dd></div>
+            </dl>
+            <button id="againBtn" class="btn primary">再来一局</button>
+            <button id="homeBtn" class="btn secondary">回首页</button>
+          </div>
+        </div>
+
+        <div id="hud" class="hud hidden">
+          <div class="hud-row">
+            <span id="scoreText" class="meter">0m</span>
+            <span id="coinText" class="meter coin">0</span>
+            <button id="pauseBtn" class="icon-btn" aria-label="暂停">Ⅱ</button>
+          </div>
+          <div class="energy"><span id="energyFill"></span></div>
+        </div>
+
+        <div id="controls" class="controls hidden">
+          <button id="slideBtn" class="control-btn">下滑</button>
+          <button id="dashBtn" class="control-btn dash">冲刺</button>
+          <button id="jumpBtn" class="control-btn">跳跃</button>
+        </div>
+      </section>
+    </main>
+
+    <script src="./main.js"></script>
+  </body>
+</html>
